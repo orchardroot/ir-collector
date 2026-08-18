@@ -1,28 +1,21 @@
 # ir-collector
 
-Cross-platform **incident-response triage collectors**. Two standalone scripts that
-rapidly gather forensically valuable logs and artefacts from an endpoint during an
-investigation and package them into a hashed, portable evidence archive.
+Cross-platform **incident-response triage collectors**: two standalone scripts — one Bash, one PowerShell — that rapidly gather the forensically useful logs and artefacts from an endpoint and package them into a hashed, portable evidence archive.
+
+I run a SOC. When a box looks wrong at 02:00, the thing I want is *everything that matters, off the host, hashed, in one archive, in minutes* — before anyone reboots it, before the attacker notices, and before I have to argue with a forensic suite's licence server. These scripts are that. No installer, no agent, no dependencies beyond what the OS ships with. Copy one file on, run it, copy one archive off.
 
 | Platform | Script | Language |
 |----------|--------|----------|
 | macOS | [`macos/mac_ir_collector.sh`](macos/mac_ir_collector.sh) | Bash |
 | Windows | [`windows/windows_ir_collector.ps1`](windows/windows_ir_collector.ps1) | PowerShell |
 
-Both produce an `IR_Collection_<hostname>_<timestamp>/` directory with a `manifest.txt`,
-SHA256 `hashes.sha256` for chain of custody, a `collection.log`, and an
-`error_collection.log`, then compress it to a single archive.
+Both produce an `IR_Collection_<hostname>_<timestamp>/` directory containing a `manifest.txt`, SHA256 `hashes.sha256` for chain of custody, a `collection.log` and an `error_collection.log`, then compress the lot into a single archive.
 
 ---
 
 ## macOS — `mac_ir_collector.sh`
 
-Collects `/var/log`, Apple unified logs (targeted at auth/sudo/SSH/kernel/XProtect/
-Gatekeeper/Endpoint Security, plus CrowdStrike Falcon and Google Santa), BSM audit
-logs, persistence (LaunchDaemons/Agents, cron, login hooks, kexts, system extensions),
-network state, browser artefacts (Safari/Chrome/Firefox/Edge, raw + parsed), user
-activity (KnowledgeC, recent items), security databases (TCC, quarantine, XProtect,
-Gatekeeper), shell history, config/credential dirs, and diagnostic reports.
+Collects `/var/log`, Apple unified logs (targeted at auth/sudo/SSH/kernel/XProtect/Gatekeeper/Endpoint Security, plus CrowdStrike Falcon and Google Santa), BSM audit logs, persistence (LaunchDaemons/Agents, cron, login hooks, kexts, system extensions), network state, browser artefacts (Safari/Chrome/Firefox/Edge, raw + parsed), user activity (KnowledgeC, recent items), security databases (TCC, quarantine, XProtect, Gatekeeper), shell history, config/credential dirs, and diagnostic reports.
 
 ```bash
 sudo ./macos/mac_ir_collector.sh [OUTPUT_DIR] [OPTIONS]
@@ -40,18 +33,10 @@ Requires macOS 10.12+; run with `sudo` for a complete collection.
 
 ## Windows — `windows_ir_collector.ps1`
 
-Gathers system info, event logs (Security/System/Application/PowerShell/Sysmon/
-Defender), persistence (run keys, scheduled tasks, services, startup, WMI
-subscriptions), network state, browser artefacts (Chrome/Firefox/Edge), user activity
-(recent files, jump lists, shellbags, UserAssist, RDP history), security artefacts
-(Defender, AMSI, Credential Guard), shell history (PowerShell/CMD/WSL), application
-artefacts (Office MRU, Outlook), config/credential files, and filesystem metadata
-(USN Journal, MFT location).
+Gathers system info, event logs (Security/System/Application/PowerShell/Sysmon/Defender), persistence (run keys, scheduled tasks, services, startup, WMI subscriptions), network state, browser artefacts (Chrome/Firefox/Edge), user activity (recent files, jump lists, shellbags, UserAssist, RDP history), security artefacts (Defender, AMSI, Credential Guard), shell history (PowerShell/CMD/WSL), application artefacts (Office MRU, Outlook), config/credential files, and filesystem metadata (USN Journal, MFT location).
 
 ```powershell
-# Basic collection (default output to Desktop)
-.\windows\windows_ir_collector.ps1
-
+.\windows\windows_ir_collector.ps1                              # default output to Desktop
 .\windows\windows_ir_collector.ps1 -OutputDir "C:\IR\Collection"
 .\windows\windows_ir_collector.ps1 -DryRun
 .\windows\windows_ir_collector.ps1 -EventLogHours 72
@@ -62,24 +47,21 @@ Requires Windows 10/11 or Server 2016+, PowerShell 5.1+; Administrator recommend
 
 ---
 
-## Notes
+## Things I'd want to know before running it on my own estate
 
-- Some artefacts require elevation; both scripts warn and skip inaccessible items when
-  run unprivileged, logging details to `error_collection.log`.
-- **Sensitive data:** both collectors gather credential material (SSH keys, `.aws`,
-  `.kube`, cloud creds, `.gnupg`). Handle the resulting archive securely.
-- For full MFT extraction on Windows use dedicated tools (KAPE, MFTECmd, RawCopy).
+- **Elevation.** Some artefacts need root/Administrator. Both scripts warn and skip what they can't read when run unprivileged, and log the details to `error_collection.log` — you get a partial collection, not a failure.
+- **Sensitive data — this is the important one.** Both collectors deliberately gather credential material: SSH keys, `.aws`, `.kube`, cloud creds, `.gnupg`, browser databases. That is the point of triage, and it also means the resulting archive is now the most sensitive file on your network. Treat it like evidence: encrypt it in transit, store it somewhere access-controlled, and record who has had it.
+- **Dry-run first** on a new build of anything. `-n` / `-DryRun` shows you exactly what would be touched.
+- **MFT.** The Windows collector records where the MFT is; for a full extraction use a dedicated tool (KAPE, MFTECmd, RawCopy). This is a triage script, not a full-disk imager, and it doesn't pretend otherwise.
 
 ## History
 
-This repository combines the previously separate `mac-ir-collector` and
-`win-ir-collector` projects; the original commit history of both is preserved here
-under `macos/` and `windows/`.
-
-## Author
-
-**Orchardroot** — [github.com/orchardroot](https://github.com/orchardroot)
+This repository combines the previously separate `mac-ir-collector` and `win-ir-collector` projects; the original commit history of both is preserved under `macos/` and `windows/`.
 
 ## Licence
 
-MIT — see [LICENSE](LICENSE).
+MIT — see [LICENSE](LICENSE). Use it, fork it, adapt it to your estate; if you improve it, a PR would be lovely.
+
+---
+
+*orchardroot — made in Cheshire, under the supervision of two cats.*
